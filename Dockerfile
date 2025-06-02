@@ -1,81 +1,77 @@
-# --------------------------------------------------------------------
-# Etapa 1: Builder (compilação com MSYS2)
-# --------------------------------------------------------------------
-FROM mcr.microsoft.com/windows:21H2 AS builder
+# Use uma imagem base do Windows Server Core com .NET Framework (útil para MSBuild)
+# e ferramentas de desenvolvimento C++.
+# Nota: Imagens Windows são grandes e o build pode ser demorado.
+FROM mcr.microsoft.com/windows/servercore:ltsc2019 AS builder
 
-# Para rodar comandos PowerShell sem prompt interativo:
-SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
+SHELL ["powershell", "-Command", "Set-ExecutionPolicy Bypass -Scope Process -Force;"]
 
-# 1) Instalar Chocolatey (necessário para obter MSYS2)
-RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; \
-    iex ((New-Object Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+# Variáveis de ambiente para versões e caminhos
+ENV PIN_VERSION=3.28
+ENV PIN_FILENAME=pin-${PIN_VERSION}-98749-g30a63da11-msvc-windows.zip
+# ATENÇÃO: O link de download direto do Pin pode ser instável ou mudar.
+# É mais robusto baixar o Pin manualmente e usar ADD para copiá-lo para a imagem,
+# ou encontrar um link de download persistente oficial.
+# Este é um link de exemplo, verifique a página oficial do Intel Pin para o correto.
+ENV PIN_DOWNLOAD_URL=https://software.intel.com/sites/landingpage/pintool/downloads/pin-${PIN_VERSION}-98749-g30a63da11-msvc-windows.zip
+ENV PIN_ROOT=C:/pin
+ENV CHOCOLATEY_VERSION=1.4.0
 
-# 2) Instalar MSYS2 via Chocolatey
-RUN choco install --yes msys2 --no-progress
+# Instalar Chocolatey (gerenciador de pacotes para Windows)
+RUN Invoke-WebRequest "https://chocolatey.org/install.ps1" -OutFile "install.ps1"; \
+    ./install.ps1; \
+    Remove-Item -Path "install.ps1"; \
+    # Adicionar ao PATH permanentemente para a sessão atual e futuras
+    $env:PATH = $env:PATH + ";C:\ProgramData\chocolatey\bin"; \
+    [System.Environment]::SetEnvironmentVariable('PATH', $env:PATH, [System.EnvironmentVariableTarget]::Machine)
 
-# 3) Atualizar MSYS2 e instalar toolchain e bibliotecas de dev (ncursesw, X11, Xft, freetype)
-RUN C:/tools/msys64/usr/bin/bash -lc "pacman -Syuu --noconfirm" ; \
-    C:/tools/msys64/usr/bin/bash -lc "pacman -Su --noconfirm" ; \
-    C:/tools/msys64/usr/bin/bash -lc "pacman -S --noconfirm \
-        base-devel \
-        mingw-w64-x86_64-toolchain \
-        mingw-w64-x86_64-ncurses \
-        mingw-w64-x86_64-libxft \
-        mingw-w64-x86_64-libx11 \
-        mingw-w64-x86_64-freetype"
+# Instalar Git e 7-Zip usando Chocolatey
+RUN choco install -y git --version=2.40.0; \
+    choco install -y 7zip.commandline --version=22.01; \
+    # Adicionar Git e 7-Zip ao PATH permanentemente
+    $env:PATH = $env:PATH + ";C:\Program Files\Git\cmd;C:\Program Files\7-Zip"; \
+    [System.Environment]::SetEnvironmentVariable('PATH', $env:PATH, [System.EnvironmentVariableTarget]::Machine)
 
-# 4) Ajustar PATH para incluir MSYS2/MinGW-w64
-ENV PATH="C:\\tools\\msys64\\usr\\bin;C:\\tools\\msys64\\mingw64\\bin;%PATH%"
+# Instalar Visual Studio 2019 Build Tools (ou 2022 se preferir)
+# É crucial instalar os componentes corretos para C++ Desktop development.
+# A lista de workloads/componentes pode ser encontrada na documentação da Microsoft.
+# Este comando é um exemplo e pode precisar ser ajustado.
+RUN Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vs_buildtools.exe -OutFile C:\vs_buildtools.exe; \
+    Start-Process C:\vs_buildtools.exe -ArgumentList '--quiet --wait --norestart --nocache --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --add Microsoft.VisualStudio.Component.Windows10SDK.19041' -Wait; \
+    Remove-Item C:\vs_buildtools.exe
 
-# 5) Copiar todo o source (código C++) para dentro do builder
-WORKDIR C:/contradef
-COPY . .
+# Baixar e extrair Intel Pin
+# Tentar com Invoke-WebRequest, se falhar, considere adicionar o zip localmente.
+RUN Write-Host "Baixando Intel Pin ${PIN_FILENAME}..."; \
+    Invoke-WebRequest -Uri ${PIN_DOWNLOAD_URL} -OutFile C:\pin.zip -UseBasicParsing; \
+    Write-Host "Extraindo Intel Pin..."; \
+    & 'C:\Program Files\7-Zip\7z.exe' x C:\pin.zip -oC:\temp_pin_extract >> C:\extract.log; \
+    # O Pin geralmente extrai para um diretório com o nome do arquivo zip (sem .zip)
+    Move-Item -Path C:/temp_pin_extract/pin-${PIN_VERSION}-*-msvc-windows/* -Destination ${PIN_ROOT} -Force; \
+    Remove-Item C:\pin.zip -Force; \
+    Remove-Item C:\temp_pin_extract -Recurse -Force
 
-# 6) Mudar para pasta de código-fonte e compilar (supondo que exista src/Makefile)
-RUN C:/tools/msys64/usr/bin/bash -lc "cd /c/contradef/src && make all"
+# Copiar o código fonte do Contradef para dentro da imagem
+COPY ./src /app/src
 
+# Definir o diretório de trabalho para a compilação
+WORKDIR /app/src
 
-# --------------------------------------------------------------------
-# Etapa 2: Runtime (imagem mais leve com somente executável e libs)
-# --------------------------------------------------------------------
-FROM mcr.microsoft.com/windows:21H2
+# Configurar o ambiente para MSBuild (chamar o script do Visual Studio)
+# O caminho exato para VsDevCmd.bat pode variar ligeiramente com a versão do VS Build Tools.
+# Este é um caminho comum para VS 2019 Build Tools.
+# E depois executar o MSBuild.
+RUN $vsDevCmdPath = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\2019\BuildTools\Common7\Tools\VsDevCmd.bat'; \
+    cmd.exe /c "`"$vsDevCmdPath`" && msbuild Contradef.sln /p:Configuration=Release /p:Platform=x64 /p:OutDir=../bin/Release/"; \
+    # Você pode querer Debug build para avaliação:
+    # cmd.exe /c "`"$vsDevCmdPath`" && msbuild Contradef.sln /p:Configuration=Debug /p:Platform=x64 /p:OutDir=../bin/Debug/"
 
-SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
+# Imagem final de execução (pode ser a mesma ou uma menor se possível, mas para Windows é menos comum)
+# Para este caso, vamos usar a mesma imagem que já tem o ambiente.
+WORKDIR /app
 
-# 1) Instalar apenas as bibliotecas de runtime mínimas via MSYS2 (ncurses, X11, Xft, freetype)
-RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; \
-    choco install --yes msys2 --no-progress ; \
-    C:/tools/msys64/usr/bin/bash -lc "pacman -Sy --noconfirm \
-        mingw-w64-x86_64-ncurses \
-        mingw-w64-x86_64-libxft \
-        mingw-w64-x86_64-libx11 \
-        mingw-w64-x86_64-freetype" ; \
-    C:/tools/msys64/usr/bin/bash -lc "pacman -Sc --noconfirm"
+# Configurar o PATH para incluir o diretório do Pin
+ENV PATH="${PIN_ROOT};${PATH}"
 
-# 2) Criar usuário sem privilégios
-RUN net user /add contradefuser && \
-    net localgroup administrators contradefuser /delete
-
-USER contradefuser
-
-# 3) Copiar o executável (contradef.exe) compilado para dentro da imagem final
-WORKDIR C:/Users/contradefuser/AppData/Local/Programs/Contradef
-COPY --from=builder C:/contradef/src/contradef.exe ./
-
-# 4) Copiar eventuais arquivos de configuração (se houverem dentro de config/)
-COPY --from=builder C:/contradef/config ./config
-
-# 5) Criar pastas para input e output (montagem de volume)
-RUN mkdir data ; mkdir data\input ; mkdir data\output
-
-# 6) Expor porta 8080 (caso o programa abra servidor web; senão, pode remover esta linha)
-EXPOSE 8080
-
-# 7) Definir volume para persistência de dados
-VOLUME C:/Users/contradefuser/AppData/Local/Programs/Contradef/data
-
-# 8) ENTRYPOINT padrão: executa contradef.exe; CMD padrão mostra ajuda
-ENTRYPOINT ["C:\\Users\\contradefuser\\AppData\\Local\\Programs\\Contradef\\contradef.exe"]
-CMD ["--help"]
+# Ponto de entrada padrão para o contêiner (opcional)
+# Pode ser um PowerShell para que o usuário possa rodar os comandos.
+CMD ["powershell.exe", "-NoExit", "-Command", "Write-Host 'Ambiente Contradef pronto. Use pin.exe para iniciar a análise. Ex: pin.exe -injection child -t C:/app/bin/Release/contradef.dll -- C:/path/to/your/sample.exe'"]
