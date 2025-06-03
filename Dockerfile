@@ -16,7 +16,7 @@ RUN choco install -y git 7zip
 
 # Instalar Visual Studio Build Tools (compilação C++)
 RUN Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_BuildTools.exe" -OutFile "C:\\vs_buildtools.exe"; \
-    Start-Process "C:\\vs_buildtools.exe" -ArgumentList '--quiet --wait --norestart --nocache --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended' -Wait; \
+    Start-Process "C:\\vs_buildtools.exe" -ArgumentList '--quiet --wait --norestart --nocache --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --includeRecommended' -Wait; \
     Remove-Item "C:\\vs_buildtools.exe" -Force
 
 # Copiar e extrair Intel Pin (ZIP baixado manualmente)
