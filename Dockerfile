@@ -9,7 +9,8 @@ WORKDIR C:/temp
 
 # Variáveis de ambiente para o Intel Pin
 ENV PIN_ROOT="C:\\pin"
-ENV PATH="$Env:PIN_ROOT;$Env:PATH" # PIN_ROOT já deve ser C:\pin
+# O PIN_ROOT (C:\pin) é adicionado ao PATH
+ENV PATH="$Env:PIN_ROOT;$Env:PATH"
 
 # Instalação do Chocolatey e 7-Zip (método revisado)
 RUN Write-Host 'Installing Chocolatey...'; \
@@ -34,10 +35,10 @@ RUN Write-Host 'Installing Visual Studio Build Tools 2019...'; \
 # Certifique-se que o arquivo pin-external-3.31-msvc-windows.zip está no contexto do build.
 COPY pin-external-3.31-msvc-windows.zip C:\\pin.zip
 RUN Write-Host 'Extracting Intel Pin...'; \
-    # Garante que o 7-zip do Chocolatey seja usado se o caminho completo for necessário
-    # O PATH deve ter C:\ProgramData\chocolatey\bin que contém 7z.exe (instalado pelo choco)
+    # Garante que o 7-zip do Chocolatey seja usado.
+    # O PATH deve ter C:\ProgramData\chocolatey\bin que contém 7z.exe (instalado pelo choco).
     # Se houver dúvidas, use o caminho completo para 7z, mas choco deve adicioná-lo ao PATH.
-    # Teste se o 7z está no path primeiro
+    # Teste se o 7z está no path primeiro:
     $7zPath = (Get-Command 7z.exe -ErrorAction SilentlyContinue).Source; \
     if (-not $7zPath) { $7zPath = "C:\Program Files\7-Zip\7z.exe"; Write-Warning "7z.exe not found in PATH, trying default C:\Program Files\7-Zip\7z.exe"; } \
     if (-not (Test-Path $7zPath)) { Write-Error "7z.exe not found at $7zPath or in PATH. Please ensure 7-Zip is installed and in PATH."; exit 1; } \
@@ -49,7 +50,7 @@ RUN Write-Host 'Extracting Intel Pin...'; \
     Write-Host 'Intel Pin extraction complete.'
 
 # Copia o código-fonte do repositório Contradef para o contêiner
-# WORKDIR ainda é C:/temp aqui, precisamos copiar para C:/app/src
+# O WORKDIR atual é C:/temp, copiamos o fonte para C:/app/src
 COPY ./src C:\\app\\src
 
 # Define o diretório de trabalho para a compilação
@@ -75,7 +76,7 @@ ENV PATH=%PIN_ROOT%;%PATH%
 COPY --from=builder C:\\pin C:\\pin
 
 # Copia os binários compilados do Contradef para a imagem final
-# O WORKDIR no builder era C:\app\src, então OutDir=..\bin\Release é C:\app\bin\Release
+# No estágio 'builder', o WORKDIR era C:\app\src, então OutDir=..\bin\Release resulta em C:\app\bin\Release
 COPY --from=builder C:\\app\\bin\\Release C:\\Contradef
 
 # Define o diretório de trabalho na imagem final
