@@ -33,13 +33,12 @@ COPY ./src C:/app/src
 # Compilar o Contradef
 WORKDIR C:/app/src
 
-# Troca temporária de shell para cmd
 SHELL ["cmd", "/S", "/C"]
 
-RUN call "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" && \
+# Use o Developer Command Prompt, se existir:
+RUN call "C:\BuildTools\VC\Auxiliary\Build\vcvars64.bat" && \
     msbuild Contradef.sln /p:Configuration=Release /p:Platform=x64 /p:OutDir=..\\bin\\Release\\
 
-# Volta o shell para PowerShell para próximos passos
 SHELL ["powershell", "-Command", "Set-ExecutionPolicy Bypass -Scope Process -Force;"]
 
 # ---------------------------------------------------------
