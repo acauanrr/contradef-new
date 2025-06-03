@@ -36,7 +36,7 @@ WORKDIR C:/app/src
 # Troca temporária de shell para cmd
 SHELL ["cmd", "/S", "/C"]
 
-RUN call "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\VsDevCmd.bat" && \
+RUN call "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" && \
     msbuild Contradef.sln /p:Configuration=Release /p:Platform=x64 /p:OutDir=..\\bin\\Release\\
 
 # Volta o shell para PowerShell para próximos passos
