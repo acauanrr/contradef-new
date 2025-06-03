@@ -21,10 +21,11 @@ ENV PIN_VERSION=3.28
 ENV PIN_URL=https://software.intel.com/sites/landingpage/pintool/downloads/pin-${PIN_VERSION}-98749-g30a63da11-msvc-windows.zip
 ENV PIN_ROOT=C:/pin
 
-RUN Invoke-WebRequest -Uri $env:PIN_URL -OutFile C:\pin.zip; \
-    7z x C:\pin.zip -oC:\pin_temp; \
+COPY pin-external-3.31-98869-gfa6f126a8-msvc-windows.zip C:\pin.zip
+RUN 7z x C:\pin.zip -oC:\pin_temp; \
     Move-Item -Path C:\pin_temp\pin-* -Destination $env:PIN_ROOT; \
-    Remove-Item C:\pin.zip -Force; Remove-Item C:\pin_temp -Recurse -Force
+    Remove-Item C:\pin.zip -Force; \
+    Remove-Item C:\pin_temp -Recurse -Force
 
 # Copiar o código fonte
 COPY ./src C:/app/src
