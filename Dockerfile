@@ -1,25 +1,11 @@
 # ---------------------------------------------------------
-# Estágio 1: Builder
-# ---------------------------------------------------------
-FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS builder
+# Base: SDK .NET Framework com VS Build Tools e MSBuild já instalados
+FROM mcr.microsoft.com/dotnet/framework/sdk:4.8-windowsservercore-ltsc2022 AS builder
 
-# Preparar o PowerShell
+# Definir o shell como PowerShell por padrão
 SHELL ["powershell", "-Command", "Set-ExecutionPolicy Bypass -Scope Process -Force;"]
 
-# Instalar Chocolatey
-RUN Invoke-WebRequest "https://chocolatey.org/install.ps1" -OutFile "install.ps1"; \
-    ./install.ps1; \
-    Remove-Item "install.ps1" -Force
-
-# Instalar Git e 7-Zip
-RUN choco install -y git 7zip
-
-# Instalar Visual Studio Build Tools (compilação C++)
-RUN Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_BuildTools.exe" -OutFile "C:\\vs_buildtools.exe"; \
-    Start-Process "C:\\vs_buildtools.exe" -ArgumentList '--quiet --wait --norestart --nocache --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --includeRecommended' -Wait; \
-    Remove-Item "C:\\vs_buildtools.exe" -Force
-
-# Copiar e extrair Intel Pin (ZIP baixado manualmente)
+# Copiar e extrair o Intel Pin
 ENV PIN_ROOT=C:/pin
 COPY pin-external-3.31-msvc-windows.zip C:/pin.zip
 RUN 7z x C:/pin.zip -oC:/pin_temp; \
@@ -33,29 +19,30 @@ COPY ./src C:/app/src
 # Compilar o Contradef
 WORKDIR C:/app/src
 
+# Mudar temporariamente o shell para CMD para build
 SHELL ["cmd", "/S", "/C"]
 
-# Use o Developer Command Prompt, se existir:
-RUN call "C:\BuildTools\VC\Auxiliary\Build\vcvars64.bat" && \
+# Usar vcvarsall.bat que existe em todas as instalações MSVC
+RUN call "C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" x64 && \
     msbuild Contradef.sln /p:Configuration=Release /p:Platform=x64 /p:OutDir=..\\bin\\Release\\
 
+# Voltar para PowerShell para os próximos passos
 SHELL ["powershell", "-Command", "Set-ExecutionPolicy Bypass -Scope Process -Force;"]
 
 # ---------------------------------------------------------
-# Estágio 2: Imagem Final
-# ---------------------------------------------------------
+# Imagem final para runtime (Windows Server Core puro)
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
-# Definir variáveis de ambiente
+# Variáveis de ambiente
 ENV PIN_ROOT=C:/pin
 ENV PATH="${PIN_ROOT};${PATH}"
 
-# Copiar PIN e binários compilados
+# Copiar PIN e binários compilados do estágio builder
 COPY --from=builder C:/pin C:/pin
 COPY --from=builder C:/app/bin/Release C:/app/bin/Release
 
 # Diretório de trabalho
 WORKDIR C:/app
 
-# Mensagem padrão ao entrar no contêiner
+# Mensagem ao entrar no contêiner
 CMD ["powershell.exe", "-NoExit", "-Command", "Write-Host 'Contêiner Contradef pronto. Use pin.exe conforme o README!'"]
