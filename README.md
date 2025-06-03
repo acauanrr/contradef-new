@@ -19,7 +19,7 @@ Este repositório simplifica a instalação e execução do [Contradef](https://
 
 1. Clone este repositório:
    ```powershell
-   git clone <URL_DO_SEU_REPOSITORIO_CONTRADEF_NEW>
+   git clone https://github.com/acauanrr/contradef-new.git
    cd contradef-new
    ```
 2. (Opcional) Crie a pasta `samples/` e adicione executáveis para análise:
