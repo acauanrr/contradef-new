@@ -24,13 +24,16 @@ RUN C:/7z.exe x C:/pin.zip -oC:/pin_temp && \
     C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -Command "Remove-Item C:/pin_temp -Recurse -Force" && \
     del C:\7z.exe && del C:\7z.dll
 
+# ---------------------------------------------------------
 # Instalação do Visual Studio Build Tools 2019
-RUN powershell -Command " \
+# ---------------------------------------------------------
+RUN C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Command " \
     $ErrorActionPreference = 'Stop'; \
     Invoke-WebRequest -Uri https://aka.ms/vs/16/release/vs_buildtools.exe -OutFile C:\vs_buildtools.exe; \
     Start-Process C:\vs_buildtools.exe -ArgumentList '--quiet', '--wait', '--norestart', '--nocache', '--add', 'Microsoft.VisualStudio.Workload.VCTools', '--includeRecommended' -Wait; \
     Remove-Item C:\vs_buildtools.exe -Force; \
     Write-Host 'Visual Studio Build Tools 2019 installation complete.'"
+
 
 # Copiar o código-fonte do Contradef
 COPY ./src C:/app/src
