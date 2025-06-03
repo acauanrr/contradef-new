@@ -19,9 +19,9 @@ COPY pin-external-3.31-msvc-windows.zip C:/pin.zip
 # Extrair usando 7z.exe completo
 RUN C:/7z.exe x C:/pin.zip -oC:/pin_temp && \
     C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -Command "$dir = (Get-ChildItem C:/pin_temp/pin-* -Directory).FullName; Move-Item -Path \"$dir\\*\" -Destination $Env:PIN_ROOT -Force" && \
-    del C:/pin.zip && \
+    del C:\pin.zip && \
     C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -Command "Remove-Item C:/pin_temp -Recurse -Force" && \
-    del C:/7z.exe && del C:/7z.dll
+    del C:\7z.exe && del C:\7z.dll
 
 # Copiar o código-fonte do Contradef
 COPY ./src C:/app/src
