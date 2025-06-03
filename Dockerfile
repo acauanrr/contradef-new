@@ -2,11 +2,19 @@
 # Base: SDK .NET Framework com VS Build Tools e MSBuild já instalados
 FROM mcr.microsoft.com/dotnet/framework/sdk:4.8-windowsservercore-ltsc2022 AS builder
 
-# Definir o shell como PowerShell por padrão
+# Preparar PowerShell
 SHELL ["powershell", "-Command", "Set-ExecutionPolicy Bypass -Scope Process -Force;"]
 
-# Copiar e extrair o Intel Pin
+# Instalar Chocolatey e 7-Zip
+RUN Invoke-WebRequest "https://chocolatey.org/install.ps1" -OutFile "install.ps1"; \
+    ./install.ps1; \
+    Remove-Item "install.ps1" -Force; \
+    choco install -y 7zip
+
+# Variável de ambiente
 ENV PIN_ROOT=C:/pin
+
+# Copiar e extrair o Intel Pin
 COPY pin-external-3.31-msvc-windows.zip C:/pin.zip
 RUN 7z x C:/pin.zip -oC:/pin_temp; \
     Move-Item -Path C:/pin_temp/pin-* -Destination $env:PIN_ROOT; \
