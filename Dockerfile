@@ -36,7 +36,7 @@ WORKDIR C:/app/src
 # Troca o shell para cmd
 SHELL ["cmd", "/S", "/C"]
 
-RUN "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\Common7\\Tools\\VsDevCmd.bat" && \
+RUN call ""C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\Common7\Tools\VsDevCmd.bat"" && \
     msbuild Contradef.sln /p:Configuration=Release /p:Platform=x64 /p:OutDir=..\\bin\\Release\\
 
 # Volta o shell para PowerShell para próximos passos
