@@ -1,22 +1,28 @@
 # Etapa 1: Ambiente de Build
 FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS builder
 
-# Configurações do PowerShell
-SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; Write-Host 'PowerShell as shell. ErrorActionPreference set to Stop.'"]
+# Configurações do PowerShell simplificadas
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
+
+# Define um diretório de trabalho seguro e gravável
+WORKDIR C:/temp
 
 # Variáveis de ambiente para o Intel Pin
 ENV PIN_ROOT="C:\\pin"
-ENV PATH="$Env:PIN_ROOT;$Env:PATH"
+ENV PATH="$Env:PIN_ROOT;$Env:PATH" # PIN_ROOT já deve ser C:\pin
 
-# Instalação do Chocolatey e 7-Zip
-RUN Write-Host 'Installing Chocolatey and 7-Zip...'; \
-    Invoke-WebRequest -Uri "https://chocolatey.org/install.ps1" -OutFile "install.ps1"; \
-    ./install.ps1; \
-    Remove-Item "install.ps1" -Force; \
+# Instalação do Chocolatey e 7-Zip (método revisado)
+RUN Write-Host 'Installing Chocolatey...'; \
+    Set-ExecutionPolicy Bypass -Scope Process -Force; \
+    # Usa iex para executar o script de instalação do Chocolatey diretamente da web
+    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1')); \
+    # O PATH para choco deve estar disponível na sessão atual após a instalação
+    Write-Host 'Chocolatey installed. Installing 7-Zip...'; \
     choco install -y 7zip; \
     Write-Host 'Chocolatey and 7-Zip installation complete.'
 
 # Instalação do Visual Studio Build Tools 2019 com as ferramentas C++
+# (O restante do seu Dockerfile daqui para baixo permanece o mesmo que eu sugeri anteriormente)
 # Link para VS 2019 Build Tools (v16)
 RUN Write-Host 'Installing Visual Studio Build Tools 2019...'; \
     Invoke-WebRequest -Uri "https://aka.ms/vs/16/release/vs_buildtools.exe" -OutFile "vs_buildtools.exe"; \
@@ -28,9 +34,14 @@ RUN Write-Host 'Installing Visual Studio Build Tools 2019...'; \
 # Certifique-se que o arquivo pin-external-3.31-msvc-windows.zip está no contexto do build.
 COPY pin-external-3.31-msvc-windows.zip C:\\pin.zip
 RUN Write-Host 'Extracting Intel Pin...'; \
-    & "C:\Program Files\7-Zip\7z.exe" x C:\\pin.zip -oC:\\pin_temp; \
-    # O zip geralmente cria uma pasta como pin-3.31-xxxx-msvc-windows dentro de pin_temp
-    # Movemos o conteúdo dessa pasta para $Env:PIN_ROOT
+    # Garante que o 7-zip do Chocolatey seja usado se o caminho completo for necessário
+    # O PATH deve ter C:\ProgramData\chocolatey\bin que contém 7z.exe (instalado pelo choco)
+    # Se houver dúvidas, use o caminho completo para 7z, mas choco deve adicioná-lo ao PATH.
+    # Teste se o 7z está no path primeiro
+    $7zPath = (Get-Command 7z.exe -ErrorAction SilentlyContinue).Source; \
+    if (-not $7zPath) { $7zPath = "C:\Program Files\7-Zip\7z.exe"; Write-Warning "7z.exe not found in PATH, trying default C:\Program Files\7-Zip\7z.exe"; } \
+    if (-not (Test-Path $7zPath)) { Write-Error "7z.exe not found at $7zPath or in PATH. Please ensure 7-Zip is installed and in PATH."; exit 1; } \
+    & $7zPath x C:\\pin.zip -oC:\\pin_temp; \
     $PinSourceDir = (Get-ChildItem C:\\pin_temp\\pin-* -Directory).FullName; \
     Move-Item -Path ($PinSourceDir + "\\*") -Destination $Env:PIN_ROOT -Force; \
     Remove-Item C:\\pin.zip -Force; \
@@ -38,6 +49,7 @@ RUN Write-Host 'Extracting Intel Pin...'; \
     Write-Host 'Intel Pin extraction complete.'
 
 # Copia o código-fonte do repositório Contradef para o contêiner
+# WORKDIR ainda é C:/temp aqui, precisamos copiar para C:/app/src
 COPY ./src C:\\app\\src
 
 # Define o diretório de trabalho para a compilação
@@ -56,7 +68,6 @@ RUN Write-Host "Compiling Contradef solution..." && \
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
 # Variáveis de ambiente para o Intel Pin na imagem final
-# A shell padrão para windows/servercore é cmd, então usamos %VAR%
 ENV PIN_ROOT=C:\\pin
 ENV PATH=%PIN_ROOT%;%PATH%
 
@@ -64,11 +75,11 @@ ENV PATH=%PIN_ROOT%;%PATH%
 COPY --from=builder C:\\pin C:\\pin
 
 # Copia os binários compilados do Contradef para a imagem final
+# O WORKDIR no builder era C:\app\src, então OutDir=..\bin\Release é C:\app\bin\Release
 COPY --from=builder C:\\app\\bin\\Release C:\\Contradef
 
 # Define o diretório de trabalho na imagem final
 WORKDIR C:\\Contradef
 
-# Define o comando padrão para iniciar um prompt de comando,
-# permitindo ao usuário interagir com o ambiente Contradef e Pin.
+# Define o comando padrão
 CMD ["cmd.exe"]
