@@ -43,9 +43,8 @@ WORKDIR C:/app/src
 # Alternar para o CMD para executar o ambiente de build do Visual Studio
 SHELL ["cmd", "/S", "/C"]
 
-# Compilar a solução Contradef.sln
 RUN echo "Compiling Contradef solution..." && \
-    call "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat" && \
+    call "C:\\Program Files\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat" && \
     msbuild Contradef.sln /p:Configuration=Release /p:Platform=x64 /p:OutDir=..\\bin\\Release\\ && \
     echo "Contradef solution compilation complete."
 
