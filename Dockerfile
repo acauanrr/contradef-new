@@ -24,13 +24,11 @@ RUN C:/7z.exe x C:/pin.zip -oC:/pin_temp && \
     C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -Command "Remove-Item C:/pin_temp -Recurse -Force" && \
     del C:\7z.exe && del C:\7z.dll
 
-# ---------------------------------------------------------
-# Instalação do Visual Studio Build Tools 2022
-# ---------------------------------------------------------
+# Instalação do Visual Studio Build Tools 2022 com VC++ explícito
 RUN C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -Command " \
     $ErrorActionPreference = 'Stop'; \
     Invoke-WebRequest -Uri https://aka.ms/vs/17/release/vs_BuildTools.exe -OutFile C:\vs_buildtools.exe; \
-    Start-Process C:\vs_buildtools.exe -ArgumentList '--quiet', '--wait', '--norestart', '--nocache', '--add', 'Microsoft.VisualStudio.Workload.VCTools', '--includeRecommended' -Wait; \
+    Start-Process C:\vs_buildtools.exe -ArgumentList '--quiet', '--wait', '--norestart', '--nocache', '--add', 'Microsoft.VisualStudio.Workload.VCTools', '--add', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '--includeRecommended' -Wait; \
     Remove-Item C:\vs_buildtools.exe -Force; \
     Write-Host 'Visual Studio Build Tools 2022 installation complete.'"
 
