@@ -32,8 +32,15 @@ COPY ./src C:/app/src
 
 # Compilar o Contradef
 WORKDIR C:/app/src
-RUN cmd /c "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\Common7\\Tools\\VsDevCmd.bat\" ^&^& msbuild Contradef.sln /p:Configuration=Release /p:Platform=x64 /p:OutDir=..\\bin\\Release\\"
 
+# Troca o shell para cmd
+SHELL ["cmd", "/S", "/C"]
+
+RUN "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\Common7\\Tools\\VsDevCmd.bat" && \
+    msbuild Contradef.sln /p:Configuration=Release /p:Platform=x64 /p:OutDir=..\\bin\\Release\\
+
+# Volta o shell para PowerShell para próximos passos
+SHELL ["powershell", "-Command", "Set-ExecutionPolicy Bypass -Scope Process -Force;"]
 
 # ---------------------------------------------------------
 # Estágio 2: Imagem Final
