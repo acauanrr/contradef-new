@@ -17,10 +17,15 @@ COPY 7z.dll C:/7z.dll
 # Copiar e extrair o Intel Pin
 COPY pin-external-3.31-msvc-windows.zip C:/pin.zip
 
+# Extração do Intel Pin (ajuste com Join-Path no PowerShell)
 RUN "C:\\7z.exe" x "C:\\pin.zip" -o"C:\\pin_temp" && \
-    powershell -Command "$dir = (Get-ChildItem 'C:\\pin_temp\\pin-*' -Directory).FullName; Move-Item -Path ($dir + '\\*') -Destination $Env:PIN_ROOT -Force" && \
+    C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -Command \
+    "$dir = (Get-ChildItem 'C:\\pin_temp\\pin-*' -Directory).FullName; \
+    $src = Join-Path $dir '*'; \
+    Move-Item -Path $src -Destination $Env:PIN_ROOT -Force" && \
     del "C:\\pin.zip" && \
-    powershell -Command "Remove-Item 'C:\\pin_temp' -Recurse -Force" && \
+    C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -Command \
+    "Remove-Item 'C:\\pin_temp' -Recurse -Force" && \
     del "C:\\7z.exe" && del "C:\\7z.dll"
 
 # Instalação do Visual Studio Build Tools 2022 com VC++ e Windows SDK
