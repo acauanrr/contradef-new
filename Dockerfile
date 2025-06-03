@@ -1,6 +1,6 @@
 
 # Base: Windows Server Core com Visual Studio Build Tools
-FROM mcr.microsoft.com/windows/servercore:ltsc2019 AS builder
+FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS builder
 
 SHELL ["powershell", "-Command", "Set-ExecutionPolicy Bypass -Scope Process -Force;"]
 
